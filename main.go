@@ -19,7 +19,7 @@ type StatusRoot struct {
 }
 
 type IcecastStats struct {
-	Source Stream
+	Source []Stream
 }
 
 type Stream struct {
@@ -58,8 +58,9 @@ func (c IcecastClient) LoadIcecastStatus(url string) (stats *StatusRoot, err err
 		return nil, fmt.Errorf("icecast returned unexpected status: %s", resp.Status)
 	}
 	stats = new(StatusRoot)
-
-	json.NewDecoder(resp.Body).Decode(&stats)
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, fmt.Errorf("icecast returned undecoded object")
+	}
 
 	return stats, nil
 }
@@ -87,8 +88,14 @@ func (c IcecastClient) updateListeners(url string, wait int, clock string) {
 				log.Println("Error polling Icecast endpoint, trying again in", wait)
 				log.Printf("Error: %v", err)
 			} else {
-				listeners.WithLabelValues(resp.Icestats.Source.ServerName, "0").Set(float64(resp.Icestats.Source.Listeners))
-				go publishVClock(clock, resp.Icestats.Source.Listeners)
+				totalListeners := 0
+				for _, s := range resp.Icestats.Source {
+					listeners.WithLabelValues(s.ServerName, "0").Set(float64(s.Listeners))
+					totalListeners += s.Listeners
+				}
+				if clock != "" {
+					go publishVClock(clock, totalListeners)
+				}
 			}
 
 			time.Sleep(time.Duration(wait) * time.Second)

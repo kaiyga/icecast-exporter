@@ -1,0 +1,13 @@
+[Unit]
+Description=Icecast Exporter https://github.com/kaiyga/icecast-exporter
+Requires=icecast.service
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/opt/icecast-exporter/config.env
+ExecStart=/opt/icecast-exporter/icecast-exporter -icecast-config $ICECAST_CONFIG -url $ICECAST_SERVER_URL
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
